@@ -44,7 +44,7 @@
       align-items: center;
       gap: 14px;
       border: 1px solid rgba(255, 255, 255, 0.15);
-      opacity: 0.35;
+      opacity: 0.45;
       transition: opacity 0.25s;
     }
     #controls:hover { opacity: 1; }
@@ -58,4 +58,84 @@
       border-radius: 6px;
     }
     button:hover { background: rgba(255, 255, 255, 0.15); }
-    span { font-size: 14px; font
+    span { font-size: 14px; font-variant-numeric: tabular-nums; }
+    #status { position: fixed; top: 50%; color: #94a3b8; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <div id="status">Carregando apresentação...</div>
+  <div id="viewer"><canvas id="pdf-canvas"></canvas></div>
+
+  <div id="controls">
+    <button id="prev" title="Anterior (←)">◀</button>
+    <span id="page-info">1 / 1</span>
+    <button id="next" title="Próximo (→)">▶</button>
+    <button id="fullscreen" title="Tela Cheia (F)">⛶ Tela Cheia</button>
+  </div>
+
+  <script>
+    const url = './slides.pdf';
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let pdfDoc = null, pageNum = 1, rendering = false;
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    function renderPage(num) {
+      rendering = true;
+      pdfDoc.getPage(num).then(page => {
+        const viewport = page.getViewport({ scale: 2.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+          rendering = false;
+          statusEl.style.display = 'none';
+          document.getElementById('page-info').textContent = `${pageNum} / ${pdfDoc.numPages}`;
+        });
+      });
+    }
+
+    function changePage(delta) {
+      if (rendering || !pdfDoc) return;
+      const target = pageNum + delta;
+      if (target >= 1 && target <= pdfDoc.numPages) {
+        pageNum = target;
+        renderPage(pageNum);
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    document.getElementById('prev').onclick = () => changePage(-1);
+    document.getElementById('next').onclick = () => changePage(1);
+    document.getElementById('fullscreen').onclick = toggleFullscreen;
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') changePage(1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') changePage(-1);
+      if (e.key.toLowerCase() === 'f') toggleFullscreen();
+    });
+
+    document.getElementById('viewer').onclick = e => {
+      if (e.clientX > window.innerWidth / 2) changePage(1);
+      else changePage(-1);
+    };
+
+    pdfjsLib.getDocument(url).promise.then(doc => {
+      pdfDoc = doc;
+      renderPage(pageNum);
+    }).catch(err => {
+      statusEl.textContent = 'Erro ao carregar slides.pdf: ' + err.message;
+    });
+  </script>
+</body>
+</html>
