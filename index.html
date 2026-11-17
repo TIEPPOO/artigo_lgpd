@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Limites Jurídicos e Éticos do Tratamento de Dados</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0f1d;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+    #viewer {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+    canvas {
+      max-width: 100%;
+      max-height: 100%;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+      border-radius: 4px;
+    }
+    #controls {
+      position: fixed;
+      bottom: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      opacity: 0.35;
+      transition: opacity 0.25s;
+    }
+    #controls:hover { opacity: 1; }
+    button {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    button:hover { background: rgba(255, 255, 255, 0.15); }
+    span { font-size: 14px; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="viewer"><canvas id="pdf-canvas"></canvas></div>
+
+  <div id="controls">
+    <button id="prev" title="Anterior (←)">◀</button>
+    <span id="page-info">1 / 1</span>
+    <button id="next" title="Próximo (→)">▶</button>
+    <button id="fullscreen" title="Tela Cheia (F)">⛶ Tela Cheia</button>
+  </div>
+
+  <script>
+    const url = './apresentacao.pdf'; // Nome do seu arquivo PDF no repositório
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    let pdfDoc = null, pageNum = 1, rendering = false;
+    const canvas = document.getElementById('pdf-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function renderPage(num) {
+      rendering = true;
+      pdfDoc.getPage(num).then(page => {
+        // Renderiza em alta resolução (scale 2.5) para ficar nítido em telas grandes/projetores
+        const viewport = page.getViewport({ scale: 2.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+          rendering = false;
+          document.getElementById('page-info').textContent = `${pageNum} / ${pdfDoc.numPages}`;
+        });
+      });
+    }
+
+    function changePage(delta) {
+      if (rendering) return;
+      const target = pageNum + delta;
+      if (target >= 1 && target <= pdfDoc.numPages) {
+        pageNum = target;
+        renderPage(pageNum);
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    document.getElementById('prev').onclick = () => changePage(-1);
+    document.getElementById('next').onclick = () => changePage(1);
+    document.getElementById('fullscreen').onclick = toggleFullscreen;
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') changePage(1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') changePage(-1);
+      if (e.key.toLowerCase() === 'f') toggleFullscreen();
+    });
+
+    // Clique na metade direita avança, metade esquerda volta
+    document.getElementById('viewer').onclick = e => {
+      if (e.clientX > window.innerWidth / 2) changePage(1);
+      else changePage(-1);
+    };
+
+    pdfjsLib.getDocument(url).promise.then(doc => {
+      pdfDoc = doc;
+      renderPage(pageNum);
+    });
+  </script>
+</body>
+</html>
